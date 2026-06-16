@@ -41,7 +41,15 @@ def get_news_content(url):
         article = Article(url, language='ko')
         article.download() # 웹사이트 다운로드
         article.parse()    # 본문 텍스트 분석 및 정제
-        return article.text # 정제된 본문 텍스트 반환
+        
+        content = article.text
+        
+        # 네이버 뉴스 특유의 상단 안내 문구 노이즈 제거
+        noise_text = "기사 섹션 분류 안내\n\n기사의 섹션 정보는 해당 언론사의 분류를 따르고 있습니다. 언론사는 개별 기사를 2개 이상 섹션으로 중복 분류할 수 있습니다."
+        if content.startswith("기사 섹션 분류 안내"):
+            content = content.replace(noise_text, "").strip()
+            
+        return content
     except Exception as e:
         # 크롤링이 막히는 경우
         return f"본문을 긁어오지 못했습니다. (이유: {e})"
@@ -68,6 +76,7 @@ if __name__ == "__main__":
             # 본문을 수집하여 출력
             content = get_news_content(news_url)
             
-            # 본문 앞부분 200자만 출력
-            print(f"📄 본문 내용 (앞부분 200자):\n{content[:200]}...")
+            # 본문 출력
+            print(f"📄 수집된 본문 전체 글자 수: {len(content)}자")
+            print(f"📄 본문 전체 내용:\n{content}")
             print(f"==================================================\n")
