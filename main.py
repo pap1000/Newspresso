@@ -2,6 +2,7 @@ import os
 import urllib.request
 import json
 from dotenv import load_dotenv
+from newspaper import Article
 
 # .env 파일에 환경 변수로 저장된 키들을 로드
 load_dotenv()
@@ -34,6 +35,17 @@ def search_news(keyword):
         print("에러 발생:", e)
         return None
 
+def get_news_content(url):
+    try:
+        # Article 객체를 생성할 때 언어 설정을 한국어('ko')로 설정
+        article = Article(url, language='ko')
+        article.download() # 웹사이트 다운로드
+        article.parse()    # 본문 텍스트 분석 및 정제
+        return article.text # 정제된 본문 텍스트 반환
+    except Exception as e:
+        # 크롤링이 막히는 경우
+        return f"본문을 긁어오지 못했습니다. (이유: {e})"
+
 if __name__ == "__main__":
     # 검색하고 싶은 키워드를 입력
     target_keyword = "인공지능 에이전트"
@@ -43,7 +55,19 @@ if __name__ == "__main__":
     
     if news_items:
         for idx, item in enumerate(news_items, 1):
-            # 뉴스 제목에 섞여 나오는 HTML 태그(<b> 등)를 깔끔하게 제거
+            # HTML 태그 제거 및 제목 정리
             title = item['title'].replace("<b>", "").replace("</b>", "").replace("&quot;", '"')
+            news_url = item['link']
+            
+            print(f"==================================================")
             print(f"{idx}. {title}")
-            print(f"   링크: {item['link']}\n")
+            print(f"   링크: {news_url}")
+            print(f"==================================================")
+            print("⏳ 본문 수집 중...")
+            
+            # 본문을 수집하여 출력
+            content = get_news_content(news_url)
+            
+            # 본문 앞부분 200자만 출력
+            print(f"📄 본문 내용 (앞부분 200자):\n{content[:200]}...")
+            print(f"==================================================\n")
