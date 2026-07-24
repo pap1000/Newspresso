@@ -1,23 +1,10 @@
 import json
-import glob
 import os
 import ollama
 
 MODEL_NAME = "qwen2.5:7b"
 
-def get_latest_news_file():
-    """가장 최근에 저장된 news_*.json 파일 경로를 찾습니다."""
-    files = glob.glob("data/news_*.json")
-    
-    if not files:
-        return None
-    
-    # 생성 시간 기준 가장 최근 파일 반환
-    return max(files, key=os.path.getmtime)
-
 def filter_news_with_llm(keyword, title, content):
-    """LLM을 호출하여 뉴스가 키워드의 실제 맥락에 맞는지 YES/NO로 판단합니다."""
-    # 본문이 너무 길면 LLM 처리 속도가 느려지므로 앞 800자만 전달
     short_content = content[:800] if content else "본문 없음"
     
     prompt = f"""
@@ -38,29 +25,23 @@ def filter_news_with_llm(keyword, title, content):
         response = ollama.chat(
             model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],
-            options={"temperature": 0.0} # 환각 최소화, 일관된 답변 도출
+            options={"temperature": 0.0}
         )
         
         result = response['message']['content'].strip().upper()
-        # "YES" 문구가 들어가 있으면 참으로 판단
         return "YES" in result
     except Exception as e:
         print(f"⚠️ LLM 호출 실패: {e}")
-        return True # 오류 발생 시 일단 안전하게 유지
+        return True
 
-def main():
-    json_file = get_latest_news_file()
-    
-    if not json_file:
-        print("❌ 분석할 news_*.json 파일이 없습니다. main.py를 먼저 실행해 주세요!")
-        return
-
-    print(f"📂 최신 뉴스 데이터 파일 읽는 중: {json_file}")
-    with open(json_file, 'r', encoding='utf-8') as f:
-        news_list = json.load(f)
+def run_llm_filter(news_list, source_filename=None):
+    """수집된 뉴스 리스트를 받아 LLM 의미론적 필터링을 실행합니다."""
+    if not news_list:
+        print("❌ 필터링할 뉴스 데이터가 없습니다.")
+        return []
 
     filtered_news = []
-    print(f"🤖 [{MODEL_NAME}] 로컬 LLM 필터링 시작 (총 {len(news_list)}건)...\n")
+    print(f"\n🤖 [{MODEL_NAME}] 로컬 LLM 필터링 시작 (총 {len(news_list)}건)...\n")
 
     for idx, item in enumerate(news_list, 1):
         keyword = item.get('keyword', '')
@@ -69,7 +50,6 @@ def main():
         
         print(f"[{idx}/{len(news_list)}] 검사 중: {title[:30]}...")
         
-        # LLM 의미론적 필터링 판별
         is_relevant = filter_news_with_llm(keyword, title, content)
         
         if is_relevant:
@@ -84,12 +64,17 @@ def main():
     print(f"📊 필터링 결과: 총 {len(news_list)}건 중 {len(filtered_news)}건 채택!")
     print(f"==================================================")
 
-    # 필터링 결과 저장
-    output_filename = json_file.replace(".json", "_filtered.json")
-    with open(output_filename, 'w', encoding='utf-8') as f:
-        json.dump(filtered_news, f, ensure_ascii=False, indent=4)
-        
-    print(f"✅ 살아남은 알짜 뉴스가 '{output_filename}' 파일로 저장되었습니다.")
+    # 필터링 결과 파일 저장
+    if source_filename:
+        output_dir = "filtered_data"
+        os.makedirs(output_dir, exist_ok=True)  # filtered_data 폴더가 없으면 자동 생성
 
-if __name__ == "__main__":
-    main()
+        output_filename = source_filename.replace(".json", "_filtered.json")
+        file_path = os.path.join(output_dir, output_filename)
+
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(filtered_news, f, ensure_ascii=False, indent=4)
+
+        print(f"✅ 필터링 완료: 살아남은 알짜 뉴스가 '{file_path}' 파일로 저장되었습니다.")
+
+    return filtered_news

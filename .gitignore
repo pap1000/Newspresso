@@ -1,9 +1,14 @@
 # JSON 데이터 파일 제외
 *.json
 data/
+filtered_data/
 
 # 환경 변수 파일 제외
 .env
 
 # 파이썬 가상환경 및 캐시 파일
 .venv
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
