@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from newspaper import Article
 import sys
+from datetime import datetime
 
 load_dotenv()
 
@@ -131,10 +132,8 @@ def clean_text(text):
     return text.replace("<b>", "").replace("</b>", "").strip()
 
 if __name__ == "__main__":
-    # 사용자가 터미널에서 원하는 키워드를 직접 입력하도록 변경
     target_keyword = input("🔍 검색할 뉴스 키워드를 입력하세요: ").strip()
     
-    # 아무것도 입력하지 않았을 경우 대비 예외 처리
     if not target_keyword:
         print("⚠️ 검색어가 입력되지 않았습니다. 프로그램을 종료합니다.")
         sys.exit()
@@ -144,18 +143,52 @@ if __name__ == "__main__":
     news_items = search_news(target_keyword)
     
     if news_items:
+        collected_data = [] # JSON 파일로 저장할 전체 데이터 리스트
+
         for idx, item in enumerate(news_items, 1):
             title = clean_text(item['title'])
+            origin_link = item.get('originallink')
+            naver_link = item.get('link')
+            pub_date = item.get('pubDate', '')
             
             print(f"==================================================")
             print(f"{idx}. {title}")
-            print(f"   언론사 링크: {item.get('originallink')}")
-            print(f"   네이버 링크: {item.get('link')}")
+            print(f"   언론사 링크: {origin_link}")
+            print(f"   네이버 링크: {naver_link}")
             print(f"==================================================")
             print("⏳ 본문 수집 중...")
             
             content = get_news_content(item)
-            
             print(f"📄 수집된 본문 전체 글자 수: {len(content)}자")
-            print(f"📄 본문 내용 요약(앞 150자):\n{content[:150]}...")
             print(f"==================================================\n")
+
+            # 기사 정보를 딕셔너리로 패킹
+            news_entry = {
+                "id": idx,
+                "keyword": target_keyword,
+                "title": title,
+                "origin_link": origin_link,
+                "naver_link": naver_link,
+                "pub_date": pub_date,
+                "content": content,
+                "content_length": len(content)
+            }
+            collected_data.append(news_entry)
+
+        # JSON 파일로 출력 저장
+        if collected_data:
+            # 1. data 폴더가 없으면 자동 생성
+            output_dir = "data"
+            os.makedirs(output_dir, exist_ok=True)
+
+            # 2. 파일명 및 저장 경로 설정 (data/news_키워드_날짜.json)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"news_{target_keyword}_{timestamp}.json"
+            file_path = os.path.join(output_dir, filename)
+
+            # 3. 파일 저장
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(collected_data, f, ensure_ascii=False, indent=4)
+
+            print(f"✅ 총 {len(collected_data)}건의 뉴스 데이터가 저장되었습니다!")
+            print(f"📍 저장 경로: {os.path.abspath(file_path)}")
